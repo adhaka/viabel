@@ -142,7 +142,6 @@ def adagrad_workflow_optimize(n_iters, objective_and_grad, init_param,K,
                 #print(mcse_all.shape)
                 #print(np.min(mcse_all[:,-1]))
                 mcse_all = np.hstack((mcse_all, mcse_se_combined_list[:,None]))
-                print(mcse_all.shape)
 
             value_history.append(obj_val)
             local_grad_history.append(obj_grad)
