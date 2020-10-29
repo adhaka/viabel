@@ -19,6 +19,8 @@ from scipy.stats import t
 from itertools import product
 import pystan
 import pickle
+import matplotlib as mpl
+import seaborn as sns
 
 
 from viabel.vb import (mean_field_gaussian_variational_family,
@@ -28,11 +30,21 @@ from viabel.vb import (mean_field_gaussian_variational_family,
 
 
 from matplotlib import rc
-rc('text', usetex = True)
+#rc('text', usetex = True)
+#font = {'family' : 'normal',
+#        'weight' : 'normal',
+#        'size'   : 24.5}
+#rc('font', **font)
 font = {'family' : 'normal',
         'weight' : 'normal',
-        'size'   : 19.9}
+        'size'   : 40}
+rc('text', usetex = True)
 rc('font', **font)
+rc('legend', loc='best')
+mpl.rcParams['text.usetex'] = True
+sns.set_style('white')
+sns.set_context('notebook', font_scale=2.1, rc={'lines.linewidth': 2})
+
 
 import  argparse
 from posteriordb import PosteriorDatabase
@@ -165,7 +177,7 @@ if modelcode == 5:
             D_ia_moments = op_log_mf_rms['D_ia_moments']
 
             fig = plt.figure()
-            fig, ax0 = plt.subplots(nrows=1, figsize=(9.1, 6.6))
+            fig, ax0 = plt.subplots(nrows=1, figsize=(9.2, 6.6))
             ax0.set_yscale('log')
             ax1 = ax0.twinx()
             ax1.set_ylabel('Distance D between moments')
@@ -173,9 +185,11 @@ if modelcode == 5:
             #ax1.plot(D_ia_moments, linestyle='--', color='k')
             ax1.plot(np.arange(100, op_log_mf_rms['final_iter']), D_ia_moments, 'r--', label='D(IA)')
             #ax0.plot(klvi_history_rms, color='g', label='NELBO')
-            ax0.plot(klvi_history_rms, color='k', label='NELBO')
+            ax0.plot(klvi_history_rms, color='k', label='(-)ELBO')
             ax1.set_yscale('log')
-            plt.savefig('lr_30_spectral_norm_constant.pdf')
+
+
+
             from matplotlib.pyplot import text
             vlines = [op_log_mf_rms['convergence_points'][0],  op_log_mf_rms['final_iter'], op_log_mf_rms['start_stats2']]
 
@@ -183,11 +197,11 @@ if modelcode == 5:
             h1, l1 = ax0.get_legend_handles_labels()
 
             ax1.legend(h2+h1, l2+l1, loc='upper center')
-            ax0.axvline(x=vlines[0], color='purple', linestyle=':',label='1e-2')
+            ax0.axvline(x=vlines[0], color='purple', linestyle=':')
             #ax0.axvline(x=vlines[1], color='red', linestyle=':', label='1e-3')
             #ax0.axvline(x=vlines[2], color='red', linestyle='-.', label='1e-4')
-            ax0.axvline(x=vlines[1], color='black', linestyle=':', label='SE')
-            ax0.axvline(x=vlines[2], color='orange', linestyle=':', label='R-hat')
+            ax0.axvline(x=vlines[1], color='black', linestyle=':')
+            ax0.axvline(x=vlines[2], color='orange', linestyle=':')
 
 
             text_vlines= ['$\\Delta\\textrm{ELBO}<10^{-2}$', '$\\textrm{SE}<0.01$' ,'$\hat{R}< 1.1$']
@@ -220,18 +234,79 @@ if modelcode == 5:
 
             for i, x in enumerate(vlines):
                 if i==0:
-                    ax0.text(x - 600, 6e6, text_vlines[i], rotation=0, verticalalignment='bottom')
+                    ax0.text(x - 600, 7e6, text_vlines[i], rotation=0, verticalalignment='bottom')
                 if i ==2:
-                    ax0.text(x - 600, 6e6, text_vlines[i], rotation=0, verticalalignment='bottom')
+                    ax0.text(x - 600, 7e6, text_vlines[i], rotation=0, verticalalignment='bottom')
                 if i==1:
-                    ax0.text(x - 200, 6e6, text_vlines[i], rotation=0, verticalalignment='bottom')
+                    ax0.text(x - 200, 7e6, text_vlines[i], rotation=0, verticalalignment='bottom')
 
             ax0.set_xlabel('Iterations')
-            ax0.set_ylabel('NELBO')
+            ax0.set_ylabel('(-)ELBO')
             #ax0.text(0, 2e3, 'NELBO')
 
-            ax1.set_ylim((1e-1, 9))
-            plt.savefig('lr_fr_new51.pdf')
+            ax1.set_ylim((0.003, 90))
+
+            h2, l2 = ax1.get_legend_handles_labels()
+            h1, l1 = ax0.get_legend_handles_labels()
+
+            ax1.legend(h2+h1, l2+l1, loc='upper center')
+
+            plt.tight_layout()
+            #sns.despine()
+            plt.savefig('lr_fr_new_n1.pdf', bbox_inches='tight')
+
+
+
+            fig1 = plt.figure()
+            fig, ax0 = plt.subplots(nrows=1, figsize=(9.2, 6.6))
+
+            ax0.axvline(x=vlines[0], color='purple', linestyle=':')
+            #ax0.axvline(x=vlines[1], color='red', linestyle=':', label='1e-3')
+            #ax0.axvline(x=vlines[2], color='red', linestyle='-.', label='1e-4')
+
+            ax0.set_yscale('log')
+            ax0.plot(klvi_history_rms, color='k', label='(-)ELBO')
+            ax0.set_xlabel('Iterations')
+            ax0.set_ylabel('(-)ELBO')
+
+            ax0.text(vlines[0] - 600, 7e6, text_vlines[0], rotation=0, verticalalignment='bottom')
+            plt.tight_layout()
+            plt.savefig('lr_fr_new60_4.pdf', bbox_inches='tight')
+
+
+            fig1 = plt.figure()
+            fig, ax0 = plt.subplots(nrows=1, figsize=(9.2, 6.6))
+            ax0.set_yscale('log')
+
+            ax1 = ax0.twinx()
+
+            ax0.axvline(x=vlines[0], color='purple', linestyle=':')
+            #ax0.axvline(x=vlines[1], color='red', linestyle=':', label='1e-3')
+            #ax0.axvline(x=vlines[2], color='red', linestyle='-.', label='1e-4')
+
+            ax0.plot(klvi_history_rms, color='k', label='(-)ELBO')
+            ax0.set_xlabel('Iterations')
+            ax0.set_ylabel('(-)ELBO')
+
+            ax0.text(vlines[0] - 600, 7e6, text_vlines[0], rotation=0, verticalalignment='bottom')
+            ax0.axvline(x=vlines[2], color='orange', linestyle=':')
+            ax0.text(x - 600, 7e6, text_vlines[2], rotation=0, verticalalignment='bottom')
+            ax1.set_ylim((0.003, 90))
+            ax1.set_yscale('log')
+            ax1.plot(D_moments, 'b-', label='D')
+
+
+            h2, l2 = ax1.get_legend_handles_labels()
+            h1, l1 = ax0.get_legend_handles_labels()
+
+            ax1.legend(h2+h1, l2+l1, loc='upper center')
+
+            ax1.set_ylabel('Distance D between moments')
+            plt.tight_layout()
+            #sns.despine()
+            plt.savefig('lr_fr_new60_2.pdf', bbox_inches='tight')
+
+            print('plotting done..')
 
 
             n_samples = 30000
@@ -309,8 +384,8 @@ elif modelcode == 4:
     SEED=210
     alpha = 1.
     noise_sigma = 0.4
-    K_list = [10, 20, 30, 40, 50, 60, 80]
-    K_list2 = [65, 230, 860, 1890, 3320]
+    K_list = np.array([10, 20, 30, 40, 50, 60, 80])
+    K_list2 = np.array([65, 230, 495, 860, 1325, 1890, 3320])
     noise_var = noise_sigma ** 2
     rho = 0.7
 
@@ -459,24 +534,57 @@ elif modelcode == 4:
 
 
     fig= plt.figure()
-    fig, ax0 = plt.subplots(nrows=1, figsize=(9.1, 6.4))
-    fig, ax0 = plt.subplots(nrows=1, figsize=(9.1, 6.4))
+    fig, ax0 = plt.subplots(nrows=1, figsize=(9.1, 6.9))
+    fig, ax0 = plt.subplots(nrows=1, figsize=(9.1, 6.9))
 
-    ax0.plot(K_list2,  D_dict['D_elbo_last'], 'b-', label='$\Delta\\textrm{ELBO} < 0.01$(last iterate)')
-    ax0.plot(K_list2,  D_dict['D_elbo_ia_last'], 'b--', label='$\Delta\\textrm{ELBO} < 0.01$(iterate average)')
-    ax0.plot(K_list2,   D_dict['D_mcse_last'], 'r', label='$\\textrm{MCSE} < 0.01$(last iterate)')
-    ax0.plot(K_list2, D_dict['D_mcse_ia_last'], 'r--', label='$\\textrm{MCSE} < 0.01$(iterate average)')
+    idx_list = np.array([0,2,4,5,6])
+    idx_list = np.array([0,1,3,5,6])
+    print(K_list2[idx_list])
+
+    ax0.plot(K_list2[idx_list],  np.array(D_dict['D_elbo_last'])[idx_list], 'b-', label='$\Delta\\textrm{ELBO} < 0.01$(LI)')
+    ax0.plot(K_list2[idx_list],  np.array(D_dict['D_elbo_ia_last'])[idx_list], 'b--', label='$\Delta\\textrm{ELBO} < 0.01$(IA)')
+    ax0.plot(K_list2[idx_list],   np.array(D_dict['D_mcse_last'])[idx_list], 'r', label='$\\textrm{MCSE} < 0.01$(LI)')
+    ax0.plot(K_list2[idx_list], np.array(D_dict['D_mcse_ia_last'])[idx_list], 'r--', label='$\\textrm{MCSE} < 0.01$(IA)')
     ax0.set_yscale('log')
     ax0.set_xlabel('Dimensions of variational parameter(K)')
     ax0.set_ylabel('Distance D between moments')
     box = ax0.get_position()
-    ax0.set_position([box.x0, box.y0, box.width, box.height*0.89])
+    ax0.set_position([box.x0+0.01, box.y0, box.width, box.height*0.89])
     #ax0.legend(loc='upper center')
-    ax0.legend(loc='lower left', bbox_to_anchor=(-0.15, 1.02, 1., .102), ncol=2, borderaxespad=0.)
+    ax0.legend(loc='lower left', bbox_to_anchor=(0.02, 1.03, 1., .105), ncol=2, borderaxespad=0.)
+    sns.despine()
     #plt.plot(K_list, D_moments_e3)
     #plt.plot(K_list, D_ia_moments_e3)
     #plt.plot(K_list, D_moments_e4)
     #plt.plot(K_list, D_ia_moments_e4)
-    plt.savefig('lin_reg_DvsK101.pdf')
+    plt.savefig('lin_reg_DvsK_d.pdf')
+
+    fig= plt.figure()
+    fig, ax0 = plt.subplots(nrows=1, figsize=(9.1, 6.6))
+    fig, ax0 = plt.subplots(nrows=1, figsize=(9.1, 6.6))
+
+    idx_list = np.array([0,2,4,5,6])
+    idx_list = np.array([0,1,3,5,6])
+    print(K_list2[idx_list])
+
+    ax0.plot(K_list2[idx_list],  np.array(D_dict['D_elbo_last'])[idx_list], 'b-', label='$\Delta\\textrm{ELBO} < 0.01$(LI)')
+    ax0.plot(K_list2[idx_list],  np.array(D_dict['D_elbo_ia_last'])[idx_list], 'b--', label='$\Delta\\textrm{ELBO} < 0.01$(IA)')
+
+    ax0.set_yscale('log')
+    ax0.set_xlabel('Dimensions of variational parameter(K)')
+    ax0.set_ylabel('Distance D between moments')
+    box = ax0.get_position()
+    ax0.set_position([box.x0-0.01, box.y0, box.width, box.height*0.89])
+    #ax0.legend(loc='upper center')
+    ax0.legend(loc='lower left', bbox_to_anchor=(0.02, 1.03, 1., .105), ncol=2, borderaxespad=0.)
+    sns.despine()
+    #plt.plot(K_list, D_moments_e3)
+    #plt.plot(K_list, D_ia_moments_e3)
+    #plt.plot(K_list, D_moments_e4)
+    #plt.plot(K_list, D_ia_moments_e4)
+    plt.savefig('lin_reg_DvsK101_d.pdf')
+
+
+
 
 
