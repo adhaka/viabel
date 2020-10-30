@@ -110,6 +110,9 @@ def plot_approx_and_exact_contours(logdensity, var_family, var_param,
     if savepath is not None:
         plt.savefig(savepath, bbox_inches='tight')
 
+    plt.show()
+
+
 
 def plot_history(history, B=None, ylabel=None):
     if B is None:

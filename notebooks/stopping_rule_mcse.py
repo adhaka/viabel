@@ -145,7 +145,7 @@ if model == model4:
 
     if optimizer == 'rmsprop':
         klvi_var_param_rms, klvi_var_param_list_rms, avg_klvi_mean_list_rms, avg_klvi_sigmas_list_rms, klvi_history_rms, _, op_log_mf_rms = \
-            rmsprop_IA_optimize_stop(11000, obj_and_grad, init_var_param, k, learning_rate=.008, n_optimisers=2, stopping_rule=2, tolerance=0.019)
+            rmsprop_IA_optimize_stop(11000, obj_and_grad, init_var_param, k, learning_rate=.009, n_optimisers=2, stopping_rule=1, tolerance=0.019)
 
         n_samples = 20000
         ia_var_params=  np.concatenate((avg_klvi_mean_list_rms[0], avg_klvi_sigmas_list_rms[0]), axis=0)
@@ -398,7 +398,7 @@ elif model == model3:
 
     if optimizer == 'rmsprop':
         klvi_var_param_rms, klvi_var_param_list_rms, avg_klvi_mean_list_rms, avg_klvi_sigmas_list_rms, klvi_history_rms, _, op_log_mf_rms = \
-            rmsprop_IA_optimize_stop(11000, obj_and_grad, init_var_param, k, learning_rate=.006, n_optimisers=2, stopping_rule=2, tolerance=0.005)
+            rmsprop_IA_optimize_stop(11000, obj_and_grad, init_var_param, k, learning_rate=.006, n_optimisers=1, stopping_rule=1, tolerance=0.005)
 
         n_samples = 20000
         ia_var_params=  np.concatenate((avg_klvi_mean_list_rms[0], avg_klvi_sigmas_list_rms[0]), axis=0)
@@ -422,6 +422,14 @@ elif model == model3:
 
         print('Difference between analytical mean and HMC mean-IA:', np.sqrt(np.mean(np.square(ia_var_params[:k].flatten() - true_mean.flatten()))))
         print('Difference between analytical cov and HMC cov:', np.sqrt(np.mean(np.square(cov_iters_fr_rms_ia.flatten() - true_cov.flatten()))))
+
+
+
+        print('Difference between analytical mean and HMC mean2:', np.linalg.norm(klvi_var_param_rms[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.linalg.norm(cov_iters_fr_rms - true_cov,ord=2))
+
+        print('Difference between analytical mean and HMC mean-IA2:', np.linalg.norm(ia_var_params[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.linalg.norm(cov_iters_fr_rms_ia - true_cov, ord=2))
 
 
     elif optimizer == 'adam':

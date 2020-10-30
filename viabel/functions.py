@@ -4,6 +4,8 @@ import autograd.numpy as np
 from autograd.extend import primitive
 
 from psis import psislw
+from scipy.special import psi as digamma
+
 
 def compute_R_hat(chains, warmup=500):
     #first axis is relaisations, second is iters
@@ -65,11 +67,11 @@ def compute_R_hat_halfway(chains, interval=100, start=1000):
     return np.array(r_hats_halfway)
 
 
-def compute_R_hat_halfway_light(chains, interval=100, start=1000):
+def compute_R_hat_halfway_light(chains, interval=100, window_fraction=0.5, start=1000):
     n_chains, n_iters, K= chains.shape
     n_subchains = n_iters //interval
     r_hats_halfway = list()
-    r_hat_current = compute_R_hat(chains, warmup=n_iters//2)[1]
+    r_hat_current = compute_R_hat(chains, warmup=int(n_iters*(1.-window_fraction)))[1]
     #r_hats_halfway.append(r_hat_current)
     #return np.array(r_hats_halfway)
     return r_hat_current
@@ -173,4 +175,68 @@ def psis_correction(logdensity, var_family, var_param, n_samples):
                                                        var_param, n_samples)
     smoothed_log_weights, khat = psislw(log_weights)
     return samples.T, smoothed_log_weights, khat
+
+
+
+def dlogq_dmu(x, qmu, qlogsigma):
+    qsigma = np.exp(qlogsigma)
+    grad=  (x.flatten()-qmu.flatten())/qsigma.flatten()**2
+    return -grad
+
+
+def dlogq_dsigma(x, qmu, qlogsigma):
+    qsigma=np.exp(qlogsigma)
+    e = x.flatten()-qmu.flatten()
+    s_4 = 1.0/qsigma**4
+    grad= -(((qmu.flatten() + qsigma.flatten() - x.flatten()) *
+              (-qmu.flatten() + qsigma.flatten() + x.flatten())) / qsigma.flatten() ** 2)
+    #return -0.5/qsigma* + 0.5*s_4*e**2
+    return -grad
+
+def dlogq_dmu_vec(x, qmu, qlogsigma):
+    qsigma = np.exp(qlogsigma)
+    grad=  (x-qmu.reshape(-1, qmu.size))/qsigma.reshape(-1, qsigma.size)
+    return -grad
+
+def dlogq_dsigma_vec(x, qmu, qlogsigma):
+    qsigma = np.exp(qlogsigma)
+    qsigma = qsigma.reshape(-1, qsigma.size)
+    qmu = qmu.reshape(-1, qmu.size)
+    grad= -(((qmu + qsigma - x) *
+              (-qmu + qsigma + x)) / qsigma** 2)
+    return -grad
+
+
+def dlogq_dmu_t(x, qmu, qlogsigma, nu):
+    e = (x.flatten()-qmu.flatten())
+    qsigma = np.exp(qlogsigma)
+    grad = ((nu + 1) * e) / (nu * qsigma**2 + (e**2))
+    return -grad
+
+
+def dlogq_dsigma_t(x, qmu, qlogsigma, nu):
+    e = (x.flatten()-qmu.flatten())
+    qsigma = np.exp(qlogsigma)
+    qsigma2 = qsigma**2
+    e2 = np.square(e)
+    dlogpdf_dvar = nu * (e2 - qsigma2) / (2 * qsigma2 * (qsigma2 *nu + e2))
+    dlogpdf_dvar = dlogpdf_dvar*(2*qsigma)*(qlogsigma)
+    grad = -dlogpdf_dvar
+    return grad
+
+
+def dlogq_dsigma_nu(x, qmu, qlogsigma, nu):
+    e = (x.flatten()-qmu.flatten())
+    e2 = np.square(e)
+    df = float(nu)
+    sigma = np.exp(qlogsigma)
+    sigma2 = sigma**2
+    s2 = float(sigma2[:])
+    dlogpdf_dv = 0.5 * digamma(0.5 * (df + 1)) - 0.5 * digamma(0.5 * df) - 1.0 / (2 * df)
+    dlogpdf_dv += 0.5 * (df + 1) * e2 / (df * (e2 + s2 * df))
+    dlogpdf_dv -= 0.5 * np.log1p(e2 / (s2 * df))
+    return dlogpdf_dv
+
+
+
 

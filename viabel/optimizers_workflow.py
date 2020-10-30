@@ -592,8 +592,8 @@ def rmsprop_workflow_optimize(n_iters, objective_and_grad, init_param, K,
 
                     # print(np.max(mcse_all[:,-1]))
                     if stopping_rule == 2  and sto_process_convergence == True and i > 1500 and \
-                            t % eval_elbo == 0 and (np.nanmedian(mcse_all[:, -1]) <= 0.005) \
-                            and j > 400 and (np.nanquantile(Neff[:K], 0.50) > 30) and (np.nanquantile(Neff[K:], 0.50) > 5 ):
+                            t % eval_elbo == 0 and (np.nanmedian(mcse_all[:, -1]) <= 0.02) \
+                            and j > 400 and (np.nanquantile(Neff[:K], 0.50) > 25) and (np.nanquantile(Neff[K:], 0.50) > 5 ):
                         print('shit!')
                         stop = True
                         break
@@ -927,7 +927,7 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
                         mcse_all = np.hstack((mcse_all, mcse_se_combined_list[:, None]))
                     value_history.append(obj_val)
 
-                    D_mean = np.sum(np.square(true_mean - variational_param[:K]))
+                    D_mean = np.linalg.norm(true_mean - variational_param[:K], 2)
                     if approx == 'mf':
                         D_sigma= np.sum(np.square(np.diag(true_cov) - np.square(np.exp(variational_param[K:]))))
                         D_sigma2 = np.sum(np.square(np.log(np.sqrt(np.diag(true_cov))) - variational_param[K:]))
@@ -935,12 +935,13 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
                     else:
                         q_cov = fn_density.mean_and_cov(variational_param)[1]
                         D_sigma= np.sum(np.square(true_cov.flatten() - q_cov.flatten()))
+                        D_sigma4 = np.linalg.norm(true_cov -q_cov, 2)
                         #D_sigma2 = np.sum(np.square(np.log(np.sqrt(np.diag(true_cov))) - variational_param[K:]))
                         #D_sigma3= np.sum(np.square(np.sqrt(np.diag(true_cov)) - np.exp(variational_param[K:])))
 
                     #D_sigma_fr = np.sum(np.square(np.diag(true_cov) - np.square(np.exp(variational_param[K:]))))
                     D_moments =  D_mean
-                    D_moments = D_sigma+D_mean
+                    D_moments = np.sqrt(D_sigma4)+D_mean
                     D_list.append(D_moments)
 
                     if i>100 and sto_process_convergence == False:
@@ -948,7 +949,8 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
                         start_stats = i-30
                         smoothed_opt_param = np.mean(variational_param_history_array[start_stats:, :], axis=0)
                         mean_ia= smoothed_opt_param[:K]
-                        D_mean_ia = np.sum(np.square(true_mean - mean_ia))
+                        D_mean_ia = np.linalg.norm(true_mean - mean_ia, 2)
+
                         if approx == 'mf':
                             log_sigma_ia = smoothed_opt_param[K:]
                             D_sigma_ia = np.sum(np.square(np.diag(true_cov) - np.square(np.exp(log_sigma_ia))))
@@ -958,9 +960,12 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
                             q_cov = fn_density.mean_and_cov(smoothed_opt_param)[1]
                             D_sigma_ia = np.sum(np.square(true_cov - q_cov))
 
+                            D_sigma_ia2 = np.linalg.norm(true_cov - q_cov, 2)
+
+
                         #D_moments_ia =  D_mean_ia
-                        D_moments_ia = D_sigma_ia
-                        D_moments_ia = D_sigma_ia + D_mean_ia
+                        #D_moments_ia = D_sigma_ia + D_mean_ia
+                        D_moments_ia = np.sqrt(D_sigma_ia2) + D_mean_ia
                         D_list_ia.append(D_moments_ia)
                     # elif sto_process_convergence == True and i <= start_stats2+100:
                     #
@@ -979,16 +984,19 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
                         smoothed_opt_param = np.mean(variational_param_history_array[start_stats2:, :], axis=0)
                         mean_ia= smoothed_opt_param[:K]
                         D_mean_ia = np.sum(np.square(true_mean - mean_ia))
+                        D_mean_ia = np.linalg.norm(true_mean - mean_ia,2)
                         if approx == 'mf':
                             log_sigma_ia = smoothed_opt_param[K:]
                             D_sigma_ia = np.sum(np.square(np.diag(true_cov) - np.square(np.exp(log_sigma_ia))))
+                            #D_sigma_ia2 = np.linalg.norm(q_cov - true_cov, 2)
                             D_sigma2_ia = np.sum(np.square(np.log(np.sqrt(np.diag(true_cov))) - log_sigma_ia))
                             D_sigma3_ia = np.sum(np.square(np.sqrt(np.diag(true_cov)) - np.exp(log_sigma_ia)))
                         else:
                             q_cov = fn_density.mean_and_cov(smoothed_opt_param)[1]
                             D_sigma_ia = np.sum(np.square(true_cov.flatten() - q_cov.flatten()))
+                            D_sigma_ia2 = np.linalg.norm(q_cov - true_cov, 2)
 
-                        D_moments_ia =  D_sigma_ia + D_mean_ia
+                        D_moments_ia =  np.sqrt(D_sigma_ia2) + D_mean_ia
                         D_moments_ia = (D_moments_ia)**(1+0.00001*(i-start_stats2))
                         #D_moments_ia = D_sigma3_ia + D_mean_ia
                         D_list_ia.append(D_moments_ia)
@@ -1054,8 +1062,8 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
 
                     # print(np.max(mcse_all[:,-1]))
                     if stopping_rule == 1  and sto_process_convergence == True and i > 1500 and \
-                            t % eval_elbo == 0 and (np.nanmin(mcse_all[:, -1]) <= 0.0022) and j > 200 \
-                            and (np.nanquantile(Neff[:K], 0.50) > 70) and (np.nanquantile(Neff[K:], 0.50) > 20 ):
+                            t % eval_elbo == 0 and (np.nanmedian(mcse_all[:, -1]) <= 0.02) and j > 200 \
+                            and (np.nanquantile(Neff[:K], 0.50) > 50) and (np.nanquantile(Neff[K:], 0.50) > 10 ):
                         print('shit!')
                         stop = True
                         break
@@ -1069,7 +1077,7 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
                         #print(variational_param_history_chains.shape)
                         # rhats_halfway = compute_R_hat_halfway(variational_param_history_chains, interval=100, start=200)
                         rhats_halfway_last = compute_R_hat_halfway_light(variational_param_history_chains, interval=i,
-                                                                         start=400)
+                                                                         start=600)
                         #print(rhats_halfway_last.shape)
                         # rhat_mean_windows, rhat_sigma_windows = rhats[:,:K], rhats[:,K:]
                         # rhat_mean_halfway, rhat_sigma_halfway = rhats_halfway[:, :K], rhats_halfway[:, K:]
@@ -1160,7 +1168,8 @@ def rmsprop_workflow_optimize1(n_iters, fn_density, objective_and_grad, init_par
         #optimisation_log['mcmc_se2'] = mcmc_se2_array
         optimisation_log['khat_iterates_comb'] = khat_combined
 
-    #if stopping_rule == 1:
+    optimisation_log['nelbo'] = np.array(value_history)
+    #if stop    ping_rule == 1:
     #    start_stats = i - tail_avg_iters
     #    print(start_stats)
 
