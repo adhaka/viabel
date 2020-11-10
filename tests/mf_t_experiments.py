@@ -88,28 +88,23 @@ check_approx_accuracy(mf_t_var_family, klvi_var_param, true_mean, true_cov, verb
 
 k = 2
 mf_t_var_family= mean_field_t_variational_family(k, df=40)
-stan_log_density = make_stan_log_density(fit)
-stan_log_density_grad= make_stan_log_density_grad(fit)
 
 incl_klvi_mf_objective_and_grad = markov_score_climbing_cis(mf_t_var_family, stan_log_density, 2000,2)
 
 inc_klvi_var_param, inc_klvi_param_history, _,  inc_klvi_history, op_log_inklvi = \
     adagrad_optimize(n_iters, incl_klvi_mf_objective_and_grad, init_var_param, learning_rate=.005, has_log_norm=3, k=2)
 
-
-mf_t_var_family = mean_field_t_variational_family(k, 10)
-stan_log_density = make_stan_log_density(fit)
+check_approx_accuracy(mf_t_var_family, inc_klvi_var_param, true_mean, true_cov, verbose=True);
 
 init_mean    = np.zeros(k)
 init_log_std = np.ones(k)*0.5
 init_var_param = np.concatenate([init_mean, init_log_std])
 n_iters = 3000
 
-check_approx_accuracy(mf_t_var_family, inc_klvi_var_param, true_mean, true_cov, verbose=True);
-
 mf_t_var_family= mean_field_t_variational_family(k, df=40)
-chivi_mf_objective_and_grad_pd = black_box_chivi(2, mf_t_var_family, stan_log_density, 10000)
+chivi_mf_objective_and_grad = black_box_chivi(2, mf_t_var_family, stan_log_density, 10000)
+
 chivi_var_param, chivi_param_history, _,  chivi_history, op_log_chivi = \
-    adagrad_optimize(n_iters, chivi_mf_objective_and_grad, init_var_param, learning_rate=.005, has_log_norm=3, k=2)
+    adagrad_optimize(n_iters, chivi_mf_objective_and_grad, init_var_param, learning_rate=.005, k=2)
 
 check_approx_accuracy(mf_t_var_family, chivi_var_param, true_mean, true_cov, verbose=True);
