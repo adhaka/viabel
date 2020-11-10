@@ -15,7 +15,7 @@ def compute_R_hat(chains, warmup=500):
     K = chains.shape[2]
     if n_iters%2 == 1:
         n_iters = int(n_iters - 1)
-        chains = chains[:,:n_iters-1,:]
+        chains = chains[:,:-1,:]
 
     n_iters = n_iters // 2
     psi = np.reshape(chains, (n_chains * 2, n_iters, K))
