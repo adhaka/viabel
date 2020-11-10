@@ -3,7 +3,7 @@
 import autograd.numpy as np
 from autograd.extend import primitive
 
-from psis import psislw
+from .psis import psislw
 
 def compute_R_hat(chains, warmup=500):
     #first axis is relaisations, second is iters
