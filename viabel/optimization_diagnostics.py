@@ -5,7 +5,6 @@ from autograd.extend import primitive
 from .functions import compute_R_hat, compute_R_hat_halfway
 
 
-
 def monte_carlo_se(iterate_chains, warmup=500):
 
     chains = iterate_chains[:, warmup:, :]
@@ -205,3 +204,37 @@ def gpdfit(ary):
     sigma = -k_post / b_post
 
     return k_post, sigma
+
+
+def alpha_estimator(X, m):
+    N, D = X.shape
+
+    n = int(N/m)
+    eps = 1e-30
+    Y = np.sum(X.reshape(n, m, D), axis=1)
+
+    Y_log_norm = np.log(Y.norm(1) + eps).mean()
+    X_log_norm = np.log(X.norm(1) + eps).mean()
+
+    diff = (Y_log_norm -X_log_norm)/m
+    return 1./ diff
+
+
+def alpha_estimator2(X, m, k):
+    N, D = X.shape
+
+    n = int(N/m)
+    eps = 1e-30
+    Y = np.sum(X.reshape(n, m, D), axis=1)
+
+    Y_log_norm = np.log(Y.norm(1) + eps).mean()
+    X_log_norm = np.log(X.norm(1) + eps).mean()
+
+
+    Yk = np.sort(Y_log_norm)[0][k-1]
+    Xk = np.sort(X_log_norm)[0][m*k-1]
+    diff = (Yk - Xk) / np.log(m)
+    return 1./diff
+
+
+

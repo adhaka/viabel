@@ -8,6 +8,9 @@ import  matplotlib.pyplot as plt
 #from  .optimization_diagnostics import  monte_carlo_se
 from scipy.stats import t
 
+
+
+###### test for k-hat index estimation ######
 def gpdfit(ary):
     """Estimate the parameters for the Generalized Pareto Distribution (GPD).
     Empirical Bayes estimate for the parameters of the generalized Pareto
@@ -77,6 +80,19 @@ plt.plot(1./df_list, K_list)
 plt.ylabel('Degree of freedom')
 plt.xlabel('1/df')
 plt.savefig('tail_index_student_t.pdf')
+
+
+
+
+#######
+
+def generate_alpha_samples(alpha=1., num_samples=100):
+    V_samples = np.random.uniform(-np.pi/2, np.pi/2, num_samples)
+    W_samples = np.random.exponential(1., num_samples)
+    alpha_samples= np.sin(alpha*V_samples)/np.cos(V_samples)**(1./alpha) * (np.cos(V_samples- alpha*V_samples)/W_samples)**((1-alpha)/alpha)
+
+    return alpha_samples
+
 
 
 

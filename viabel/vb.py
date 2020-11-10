@@ -26,7 +26,8 @@ from .tempering_schedule import  adaptive_tempering, sigmoid_tempering, telescop
 from ._distributions import multivariate_t_logpdf
 
 from .functions import compute_R_hat, compute_R_hat_adaptive_numpy, compute_R_hat_halfway, stochastic_iterate_averaging
-from .functions import flat_to_triang, triang_to_flat
+from .functions import flat_to_triang, triang_to_flat, dlogq_dmu_t, dlogq_dsigma_t
+
 
 __all__ = [
     'mean_field_gaussian_variational_family',
@@ -626,7 +627,7 @@ def black_box_chivi2(alpha, var_family, logdensity, n_samples):
     return objective_grad_and_log_norm
 
 
-def markov_score_climbing_cis(var_family, logdensity, n_samples, k):
+def markov_score_climbing_cis(var_family, logdensity, n_samples, k, nu=np.inf):
     '''minimizes the inclusive KL  with the MSC-CIS algorithm'''
     def compute_log_weights(var_param, seed):
         """Provides a stochastic estimate of the variational lower bound."""
@@ -636,12 +637,22 @@ def markov_score_climbing_cis(var_family, logdensity, n_samples, k):
 
 
     def log_Normal_density(x, qmu, qsigma):
-        return -0.5*np.log(2*math.pi*np.prod(qsigma)) -0.5*np.dot((x-qmu), )
+        return -0.5*np.log(2*np.pi*np.prod(qsigma)) -0.5*np.dot((x-qmu), )
 
 
     def dlogq_dmu(x, qmu, qlogsigma):
         qsigma = np.exp(qlogsigma)
         grad=  (x.flatten()-qmu.flatten())/qsigma.flatten()**2
+        return -grad
+
+
+    def dlogq_dsigma(x, qmu, qlogsigma):
+        qsigma=np.exp(qlogsigma)
+        e = x.flatten()-qmu.flatten()
+        s_4 = 1.0/qsigma**4
+        grad= -(((qmu.flatten() + qsigma.flatten() - x.flatten()) *
+                  (-qmu.flatten() + qsigma.flatten() + x.flatten())) / qsigma.flatten() ** 2)
+        #return -0.5/qsigma* + 0.5*s_4*e**2
         return -grad
 
     def dlogq_dmu_vec(x, qmu, qlogsigma):
@@ -657,15 +668,6 @@ def markov_score_climbing_cis(var_family, logdensity, n_samples, k):
                   (-qmu + qsigma + x)) / qsigma** 2)
         return -grad
 
-
-    def dlogq_dsigma(x, qmu, qlogsigma):
-        qsigma=np.exp(qlogsigma)
-        e = x.flatten()-qmu.flatten()
-        s_4 = 1.0/qsigma**4
-        grad= -(((qmu.flatten() + qsigma.flatten() - x.flatten()) *
-                  (-qmu.flatten() + qsigma.flatten() + x.flatten())) / qsigma.flatten() ** 2)
-        #return -0.5/qsigma* + 0.5*s_4*e**2
-        return -grad
 
     def logdensity_q(var_param):
         return partial(var_family.logdensity, var_param=var_param)
@@ -683,6 +685,13 @@ def markov_score_climbing_cis(var_family, logdensity, n_samples, k):
         log_weights = logdensity(samples) - var_family.logdensity(samples, var_param)
         weight_zk = logdensity(prev_zk) - var_family.logdensity(prev_zk, var_param)
 
+        #print(logdensity(prev_zk))
+        #print(var_family.logdensity(prev_zk, var_param))
+        weight_zk = np.array(weight_zk)
+
+        if log_weights.ndim ==2:
+            log_weights = log_weights[0]
+
         log_weights_all = np.concatenate((log_weights, weight_zk))
         weights_all = np.exp(log_weights_all)
         weights_snis = weights_all /np.sum(weights_all)
@@ -693,7 +702,35 @@ def markov_score_climbing_cis(var_family, logdensity, n_samples, k):
         obj_grad = np.concatenate([dlogq_dmu(weight_sample, var_param[:k], var_param[k:]),
                     dlogq_dsigma(weight_sample, var_param[:k], var_param[k:])])
         obj_val = np.mean(weights_all*log_weights_all)
+        return (obj_val, obj_grad, weight_sample)
 
+
+    def objective_grad_and_log_norm_t(var_param, prev_zk):
+        seed = npr.randint(2**32)
+        #log_weights = compute_log_weights(var_param, seed)
+        samples = var_family.sample(var_param, n_samples, seed)
+        samples_all = np.concatenate((samples, prev_zk))
+        log_weights = logdensity(samples) - var_family.logdensity(samples, var_param)
+        weight_zk = logdensity(prev_zk) - var_family.logdensity(prev_zk, var_param)
+        #print(logdensity(prev_zk))
+        #print(var_family.logdensity(prev_zk, var_param))
+        weight_zk = np.array(weight_zk)
+
+        if log_weights.ndim ==2:
+            log_weights = log_weights[0]
+        log_weights_all = np.concatenate((log_weights, weight_zk))
+        weights_all = np.exp(log_weights_all)
+        weights_snis = weights_all /np.sum(weights_all)
+        #print(np.sum(weights_all))
+        #print(weights_snis)
+        idx_sample = np.random.choice(n_samples +1, 1, p=weights_snis.flatten())
+        weight_sample = samples_all[idx_sample]
+        #obj_grad = logdensity_q_grad(var_param)
+        obj_grad = np.concatenate([dlogq_dmu_t(weight_sample, var_param[:k], var_param[k:], nu),
+                    dlogq_dsigma_t(weight_sample, var_param[:k], var_param[k:], nu)])
+
+
+        obj_val = np.mean(weights_all*log_weights_all)
         return (obj_val, obj_grad, weight_sample)
 
 
@@ -720,10 +757,12 @@ def markov_score_climbing_cis(var_family, logdensity, n_samples, k):
         return (obj_val, obj_grad, weight_sample)
 
     #return objective_grad_and_log_norm_rb
+    if nu < np.inf:
+        return  objective_grad_and_log_norm_t
     return objective_grad_and_log_norm
 
 
-def distilled_importance_sampling(var_family, logdensity, n_samples, k, n, omega):
+def distilled_importance_sampling(var_family, logdensity, n_samples, k, n, omega=0.04):
     '''minimizes the inclusive KL  with the DIS algorithm'''
     def compute_log_weights(var_param, seed):
         """Provides a stochastic estimate of the variational lower bound."""
@@ -765,15 +804,28 @@ def distilled_importance_sampling(var_family, logdensity, n_samples, k, n, omega
         weights_ris = weights[idx_sample]
         return weights_ris, samples_ris
 
-    def compute_Neff():
-        pass
+    def compute_Neff(log_weights):
+        weights= np.exp(log_weights)
+        a = np.sum(weights**2)
+        b= np.sum(weights)**2
+        Neff= b/a
+        return Neff
 
 
-    def objective_grad_and_log_norm(var_param, epsilon):
+    def objective_grad_and_log_norm(var_param, epsilon, delta=0.001):
         seed = npr.randint(2**32)
         #log_weights = compute_log_weights(var_param, seed)
         samples = var_family.sample(var_param, n_samples, seed)
         log_weights = logdensity(samples)*epsilon - var_family.logdensity(samples, var_param)
+        #_, paretok
+        Neff= compute_Neff(log_weights)
+        j=0
+        while Neff >= n:
+            epsilon = epsilon - delta
+            log_weights = logdensity(samples) * epsilon - var_family.logdensity(samples, var_param)
+            Neff= compute_Neff(log_weights)
+            j = j+1
+
         weights_is = np.exp(log_weights)
         weights_snis = weights_is /np.sum(weights_is)
         weights_tis = compute_tis(weights_is, omega)
@@ -785,7 +837,7 @@ def distilled_importance_sampling(var_family, logdensity, n_samples, k, n, omega
         S = np.sum(weights_tis)
         obj_grad = obj_grad*S/(n_samples*n)
         obj_val = np.mean(weights_ris*log_weights_ris)
-        return (obj_val, obj_grad)
+        return (obj_val, obj_grad, epsilon)
     return  objective_grad_and_log_norm
 
 
@@ -958,7 +1010,7 @@ def perturbed_black_box_vi(var_family, logdensity, n_samples, fix_vo=False):
         #lamda = lamda - 0.00000001*obj_grad[:-1]
         #new_var_params = np.array(lamda.tolist() + [var_param[-1]])
         #obj_value_next = variational_objective(new_var_params)
-        #obj_grad[-1] = obj_grad[-1] + obj_value_next
+        #obj_grad[-1] = obj_grad[-1] + obj_value_ne xt
         if fix_vo:
             obj_grad[-1] = 0.
 

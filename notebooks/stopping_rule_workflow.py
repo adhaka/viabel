@@ -1,4 +1,8 @@
 
+######  file for expts with mcse workflow on concrete, 8-school, radon, etc.
+
+
+
 import sys, os
 import pickle
 sys.path.append('..')
@@ -240,7 +244,7 @@ if model == model4:
 
     if optimizer == 'rmsprop':
         klvi_var_param_rms, klvi_var_param_list_rms, avg_klvi_mean_list_rms, avg_klvi_sigmas_list_rms, klvi_history_rms, _, op_log_mf_rms = \
-            rmsprop_workflow_optimize(11000, obj_and_grad, init_var_param, k, learning_rate=.012, n_optimisers=1, stopping_rule=2, tolerance=0.02, plotting=True)
+            rmsprop_workflow_optimize(11000, obj_and_grad, init_var_param, k, learning_rate=.011, n_optimisers=1, stopping_rule=1, tolerance=0.005, plotting=False)
 
         n_samples = 20000
         ia_var_params=  np.concatenate((avg_klvi_mean_list_rms[0], avg_klvi_sigmas_list_rms[0]), axis=0)
@@ -262,11 +266,20 @@ if model == model4:
 
         cov_iters_fr_rms = fr_g_var_family.mean_and_cov(klvi_var_param_rms)[1]
         cov_iters_fr_rms_ia = fr_g_var_family.mean_and_cov(ia_var_params)[1]
+
+        print('hii')
+        exit()
         print('Difference between analytical mean and HMC mean:', np.sqrt(np.mean(np.square(klvi_var_param_rms[:k].flatten() - true_mean.flatten()))))
         print('Difference between analytical cov and HMC cov:', np.sqrt(np.mean(np.square(cov_iters_fr_rms.flatten() - true_cov.flatten()))))
 
         print('Difference between analytical mean and HMC mean-IA:', np.sqrt(np.mean(np.square(ia_var_params[:k].flatten() - true_mean.flatten()))))
         print('Difference between analytical cov and HMC cov:', np.sqrt(np.mean(np.square(cov_iters_fr_rms_ia.flatten() - true_cov.flatten()))))
+
+        print('Difference between analytical mean and HMC mean2:', np.linalg.norm(klvi_var_param_rms[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.linalg.norm(cov_iters_fr_rms - true_cov, ord=2))
+
+        print('Difference between analytical mean and HMC mean-IA2:', np.linalg.norm(ia_var_params[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.linalg.norm(cov_iters_fr_rms_ia - true_cov, ord=2))
 
 
     elif optimizer == 'adam':
@@ -489,7 +502,7 @@ elif model == model3:
 
     if optimizer == 'rmsprop':
         klvi_var_param_rms, klvi_var_param_list_rms, avg_klvi_mean_list_rms, avg_klvi_sigmas_list_rms, klvi_history_rms, _, op_log_mf_rms = \
-            rmsprop_workflow_optimize(11000, obj_and_grad, init_var_param, k, learning_rate=.006, n_optimisers=1, stopping_rule=1, tolerance=0.005)
+            rmsprop_workflow_optimize(11000, obj_and_grad, init_var_param, k, learning_rate=.009, n_optimisers=1, stopping_rule=2, tolerance=0.005)
 
         n_samples = 20000
         ia_var_params=  np.concatenate((avg_klvi_mean_list_rms[0], avg_klvi_sigmas_list_rms[0]), axis=0)
@@ -513,6 +526,14 @@ elif model == model3:
 
         print('Difference between analytical mean and HMC mean-IA:', np.sqrt(np.mean(np.square(ia_var_params[:k].flatten() - true_mean.flatten()))))
         print('Difference between analytical cov and HMC cov:', np.sqrt(np.mean(np.square(cov_iters_fr_rms_ia.flatten() - true_cov.flatten()))))
+
+
+
+        print('Difference between analytical mean and HMC mean2:', np.linalg.norm(klvi_var_param_rms[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.sqrt(np.linalg.norm(cov_iters_fr_rms - true_cov, ord=2)))
+
+        print('Difference between analytical mean and HMC mean-IA2:', np.linalg.norm(ia_var_params[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.sqrt(np.linalg.norm(cov_iters_fr_rms_ia - true_cov, ord=2)))
 
 
     elif optimizer == 'adam':
@@ -562,7 +583,7 @@ elif model == model1:
     sigma = np.array([15., 10., 16., 11., 9., 11., 10., 18.])
     data = dict(J=J, y=y, sigma=sigma)
 
-    pmz = 'cp'
+    pmz = 'ncp'
     optimiser = 'rmsprop'
     try:
         cp = pickle.load(open('stan_pkl/eight_schools_cp.pkl', 'rb'))
@@ -581,18 +602,18 @@ elif model == model1:
 
 
     try:
-        eight_schools_cp_fit = pickle.load(open('stan_pkl/eight_schools_cp_posterior_samples.pkl', 'rb'))
+        eight_schools_cp_fit = pickle.load(open('stan_pkl/eight_schools_cp_posterior_samples22.pkl', 'rb'))
     except:
-        eight_schools_cp_fit = cp.sampling(data=data, iter=11000, warmup=1000,control=dict(adapt_delta=.99), chains=1)
-        with open('stan_pkl/eight_schools_cp_posterior_samples.pkl', 'wb') as f:
+        eight_schools_cp_fit = cp.sampling(data=data, iter=11000, warmup=1000,control=dict(adapt_delta=.99), chains=2)
+        with open('stan_pkl/eight_schools_cp_posterior_samples22.pkl', 'wb') as f:
             pickle.dump(eight_schools_cp_fit, f)
 
     try:
-        eight_schools_ncp_fit = pickle.load(open('stan_pkl/eight_schools_ncp_posterior_samples.pkl', 'rb'))
+        eight_schools_ncp_fit = pickle.load(open('stan_pkl/eight_schools_ncp_posterior_samples22.pkl', 'rb'))
     except:
         eight_schools_ncp_fit = ncp.sampling(data=data, iter=32000, warmup=2000, thin=3,
-                                                 control=dict(adapt_delta=.95), chains=1)
-        with open('stan_pkl/eight_schools_ncp_posterior_samples.pkl', 'wb') as f:
+                                                 control=dict(adapt_delta=.95), chains=2)
+        with open('stan_pkl/eight_schools_ncp_posterior_samples22.pkl', 'wb') as f:
             pickle.dump(eight_schools_ncp_fit, f)
 
 
@@ -611,6 +632,8 @@ elif model == model1:
     samples_ncp = samples_ncp_df.loc[:, param_names_ncp].values.T
     samples_ncp_transformed = samples_ncp_df.loc[:, param_names_ncp_transformed].values.T
 
+
+    #np.testing.assert_array_equal(samples_ncp, samples_ncp_transformed)
     # use samples from non-centered model for ground true mean and covariance
     true_mean_ncp = np.mean(samples_ncp, axis=1)
     true_cov_ncp = np.cov(samples_ncp)
@@ -644,21 +667,22 @@ elif model == model1:
     if pmz == 'ncp':
         stan_log_density = eight_schools_ncp_log_density
         true_mean = true_mean_ncp
-        true_cov_ncp = true_cov_ncp_tranformed
+        true_cov = true_cov_ncp
         fn_density = fr_gaussian_ncp
     elif pmz == 'cp':
         stan_log_density = eight_schools_cp_log_density
         true_mean = true_mean_cp
         fn_density = fr_gaussian_cp
+        true_cov = true_cov_ncp_tranformed
 
 
     if optimiser == 'rmsprop':
         if pmz == 'ncp':
             klvi_fr_var_param_rms_ncp1, klvi_fr_var_param_list_rms_ncp1, avg_klvi_fr_mean_list_rms_ncp1, avg_klvi_fr_sigmas_list_rms_ncp1, klvi_fr_history_rms_ncp1, _, op_log_fr_rms_ncp1 = \
-                rmsprop_workflow_optimize(8500, klvi_fr_objective_and_grad_ncp, init_fr_param1, k, learning_rate=.008, tolerance=0.03, n_optimisers=1, stopping_rule=2)
+                rmsprop_workflow_optimize(8500, klvi_fr_objective_and_grad_ncp, init_fr_param1, k, learning_rate=.008, tolerance=0.005, n_optimisers=1, stopping_rule=2)
         elif pmz == 'cp':
             klvi_fr_var_param_rms_ncp1, klvi_fr_var_param_list_rms_ncp1, avg_klvi_fr_mean_list_rms_ncp1, avg_klvi_fr_sigmas_list_rms_ncp1, klvi_fr_history_rms_ncp1, _, op_log_fr_rms_ncp1 = \
-                rmsprop_workflow_optimize(10000, klvi_fr_objective_and_grad_cp, init_fr_param1, k, learning_rate=.009, n_optimisers=1, tolerance=0.008, stopping_rule=2, tail_avg_iters=300, plotting=True)
+                rmsprop_workflow_optimize(10000, klvi_fr_objective_and_grad_cp, init_fr_param1, k, learning_rate=.009, learning_rate_end=0.0001, n_optimisers=1, tolerance=0.006, stopping_rule=2, tail_avg_iters=300, plotting=False)
 
 
         ia_var_params=  np.concatenate((avg_klvi_fr_mean_list_rms_ncp1[0], avg_klvi_fr_sigmas_list_rms_ncp1[0]), axis=0)
@@ -677,11 +701,16 @@ elif model == model1:
         print('Difference between analytical mean and HMC mean:',
               np.sqrt(np.mean(np.square(klvi_fr_var_param_rms_ncp1[:k].flatten() - true_mean.flatten()))))
         print('Difference between analytical cov and HMC cov:',
-              np.sqrt(np.mean(np.square(cov_iters_fr_rms.flatten() - true_cov.flatten()))))
+              np.sqrt(np.mean(np.square(cov_iters_fr_rms.flatten() - true_cov_ncp.flatten()))))
         print('Difference between analytical mean and HMC mean-IA:',
               np.sqrt(np.mean(np.square(ia_var_params[:k].flatten() - true_mean.flatten()))))
         print('Difference between analytical cov and HMC cov-IA:',
-              np.sqrt(np.mean(np.square(cov_iters_fr_rms_ia1.flatten() - true_cov.flatten()))))
+              np.sqrt(np.mean(np.square(cov_iters_fr_rms_ia1.flatten() - true_cov_ncp.flatten()))))
+        print('Difference between analytical mean and HMC mean2:', np.linalg.norm(klvi_fr_var_param_rms_ncp1[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.sqrt(np.linalg.norm(cov_iters_fr_rms - true_cov, ord=2)))
+        print('Difference between analytical mean and HMC mean-IA2:', np.linalg.norm(ia_var_params[:k] - true_mean))
+        print('Difference between analytical cov and HMC cov2:', np.sqrt(np.linalg.norm(cov_iters_fr_rms_ia1 - true_cov, ord=2)))
+
 
     elif optimiser == 'adagrad':
         if pmz == 'ncp':
@@ -716,8 +745,8 @@ elif model == model1:
 elif model == model6:
     import pandas as pd
 
-    optimiser = 'adagrad'
-    n_samples= 20000
+    optimiser = 'rmsprop'
+    n_samples= 50000
     sub_model = 'unpooled'
     try:
         unp = pickle.load(open('radon_unpooled.pkl', 'rb'))
@@ -807,8 +836,8 @@ elif model == model6:
     if sub_model == 'unpooled':
         if optimiser == 'rmsprop':
             klvi_var_param_rms_unp, klvi_var_param_list_rms_unp, avg_klvi_mean_list_rms_unp, avg_klvi_sigmas_list_rms_unp, klvi_history_rms_unp, _, op_log_fr_rms_unp = \
-                rmsprop_workflow_optimize(14000, klvi_fr_objective_and_grad_unp, init_var_param,
-                                          n_params_unp, learning_rate=.013,n_optimisers=1, tolerance=0.02, tail_avg_iters=200, stopping_rule=1)
+                rmsprop_workflow_optimize(16000, klvi_fr_objective_and_grad_unp, init_var_param,
+                                          n_params_unp, learning_rate=.020, n_optimisers=1, tolerance=0.05, tail_avg_iters=200, stopping_rule=1)
 
             ia_var_params=  np.concatenate((avg_klvi_mean_list_rms_unp[0], avg_klvi_sigmas_list_rms_unp[0]), axis=0)
             print(ia_var_params)
@@ -831,6 +860,15 @@ elif model == model6:
                   np.sqrt(np.mean(np.square(ia_var_params[:k].flatten() - true_mean.flatten()))))
             print('Difference between analytical cov and HMC cov-IA:',
                   np.sqrt(np.mean(np.square(cov_iters_fr_rms_ia1.flatten() - true_cov.flatten()))))
+
+            print('Difference between analytical mean and HMC mean2:',
+                  np.linalg.norm(klvi_var_param_rms_unp[:k] - true_mean))
+            print('Difference between analytical cov and HMC cov2:',
+                  np.sqrt(np.linalg.norm(cov_iters_fr_rms - true_cov, ord=2)))
+            print('Difference between analytical mean and HMC mean-IA2:', np.linalg.norm(ia_var_params[:k] - true_mean))
+            print('Difference between analytical cov and HMC cov2:',
+                  np.sqrt(np.linalg.norm(cov_iters_fr_rms_ia1 - true_cov, ord=2)))
+
 
         elif optimiser == 'adagrad':
             a,b,c,d,e = \
