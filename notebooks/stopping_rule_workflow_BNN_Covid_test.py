@@ -27,7 +27,7 @@ pdb_path = os.path.join('/Users/alex/dev/posteriordb/', "posterior_database")
 my_pdb = PosteriorDatabase(pdb_path)
 pos = my_pdb.posterior_names()
 
-modelcode = 2
+modelcode = 1
 
 from experiments import black_box_klvi, psis_correction
 from viabel.functions import compute_posterior_moments
@@ -92,9 +92,8 @@ elif modelcode == 2:
         with open('stan_pkl/covid19_v3_posterior_samples.pkl', 'wb') as f:
             pickle.dump((sm, model_fit), f)
 
-    approx = 'fr'
-#sm = pystan.StanModel(model_code=code_string, model_name='covid19_model_v2')
-#model_fit = sm.sampling(data=data.values(), iter=600, chains=1)
+    approx = 'mf'
+
 K = len(model_fit.constrained_param_names())
 print(K)
 param_names =  model_fit.flatnames
@@ -108,14 +107,20 @@ true_cov = np.cov(samples_posterior)
 true_sigma = np.sqrt(np.diag(np.atleast_1d(true_cov)))
 log_density = make_stan_log_density(model_fit)
 
+def clip_log_density(x):
+    x = np.nan_to_num(x)
+    tmp = np.concatenate((x[:,:14], np.clip(x[:,14:20], 1e-6, 1.5), x[:,20:]),
+                         axis = 1)
+    return log_density(np.clip(tmp, 1e-6, 100))
+
 true_mean_pmz = true_mean[:K]
 true_sigma_pmz = true_sigma[:K]
 
 mf_gaussian = mean_field_gaussian_variational_family(K)
 fr_gaussian = t_variational_family(K, df=10000000)
-init_param_fr = np.concatenate([np.zeros(K), np.ones(int(K*(K+1)/2))])
-#init_param_mf = np.concatenate([np.zeros(K), np.ones(K)])
-init_param_mf = np.concatenate([true_mean_pmz, np.log(true_sigma_pmz)])
+init_param_fr = np.concatenate([np.ones(K), 1e-2 * np.ones(int(K*(K+1)/2))])
+init_param_mf = np.concatenate([np.ones(K), 1e-2 * np.ones(K)])
+# init_param_mf = np.concatenate([true_mean_pmz, np.log(true_sigma_pmz)])
 
 klvi_fr_objective_and_grad = black_box_klvi(fr_gaussian, log_density, 100)
 klvi_mf_objective_and_grad = black_box_klvi(mf_gaussian, log_density, 100)
@@ -129,6 +134,10 @@ else:
     fn_density = fr_gaussian
     init_var_param = init_param_fr
     obj_and_grad = klvi_fr_objective_and_grad
+
+def obj_and_grad_(x):
+    pdb.set_trace()
+    return obj_and_grad(x)
 
 print('########### HMC Mean #################')
 print(true_mean)
@@ -166,3 +175,8 @@ with open('stan_pkl/' + model_str + '_' + stopping_rule_str + '_chain.pkl', 'wb'
     pickle.dump((a, b), f)
 
 rmse = np.sqrt(np.mean(np.square(b[i][:K].flatten() - true_mean.flatten())))
+
+print('Difference between analytical mean and HMC mean2:', np.linalg.norm(b[-1[:k] - true_mean))
+print('Difference between analytical cov and HMC cov2:', np.sqrt(np.linalg.norm(cov_iters_fr_rms - true_cov, ord=2)))
+print('Difference between analytical mean and HMC mean-IA2:', np.linalg.norm(ia_var_params[:k] - true_mean))
+print('Difference between analytical cov and HMC cov2:', np.sqrt(np.linalg.norm(cov_iters_fr_rms_ia1 - true_cov, ord=2)))
