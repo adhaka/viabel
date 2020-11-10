@@ -1629,3 +1629,33 @@ def adam_IA_optimize_with_rhat(n_iters, objective_and_grad, init_param, K,
             averaged_variational_sigmas_list,
             np.array(value_history), np.array(log_norm_history), optimisation_log)
 
+def black_box_fdiv(beta, var_family, logdensity, n_samples):
+    def compute_g(var_param):
+        """Provides a stochastic estimate of the variational lower bound."""
+        samples = var_family.sample(var_param, n_samples)
+        return samples
+
+    def compute_log_weights(var_param):
+        def compute(samples):
+            log_weights = logdensity(samples) - var_family.logdensity(samples, var_param)
+            return log_weights
+        return compute
+
+    def f_w(t, w):
+        return np.mean(w > t)
+
+    def objective_grad_and_log_norm(var_param):
+        samples, grad_var_param = value_and_grad(compute_g, var_param)
+
+        compute_logw = compute_log_weights(var_param)
+        log_weights, grad_log_weights = value_and_grad(compute_logw, samples)
+
+        weights = np.exp(log_weights - np.max(log_weights))
+
+        gamma = np.array([f(w[i], w) for i in range(len(weights))]) ** beta
+        z_gamma = np.sum(gamma)
+
+        obj_grad = 1. / z_gamma * np.sum(gamma * grad_var_param * grad_log_weights)
+        obj_value = np.NaN
+        return (obj_value, obj_grad)
+    return objective_grad_and_log_norm
