@@ -15,9 +15,13 @@ from .psis import psislw
 from paragami import (PatternDict,
                       NumericVectorPattern,
                       PSDSymmetricMatrixPattern,
-                      FlattenFunctionInput)
+                      FlattenFunctionInput,
+                      NumericArrayPattern)
 
 from functools import partial
+
+from autograd.core import getval
+from autograd import grad
 
 import tqdm
 import scipy.stats as stats
@@ -37,6 +41,7 @@ __all__ = [
     'black_box_klvi_pd',
     'black_box_klvi_pd2',
     'black_box_chivi',
+    'markov_score_climbing_cis',
     'make_stan_log_density',
     'adagrad_optimize',
     'rmsprop_IA_optimize_with_rhat',
@@ -196,6 +201,16 @@ def _get_mu_sigma_pattern(dim):
     return ms_pattern
 
 
+def _get_low_rank_mu_sigma_pattern(dim,M):
+    ms_lr_pattern = PatternDict(free_default=True)
+    ms_lr_pattern['mu'] = NumericVectorPattern(length=dim)
+    ms_lr_pattern['B'] =  NumericArrayPattern(shape=(dim,M))
+    ms_lr_pattern['D'] = NumericArrayPattern(shape=(dim,))
+    #ms_pattern['Lr'] =
+    return ms_lr_pattern
+
+
+
 def t_variational_family(dim, df):
     if df <= 2:
         raise ValueError('df must be greater than 2')
@@ -238,6 +253,57 @@ def t_variational_family(dim, df):
 
     return VariationalFamily(sample, entropy, logdensity, mean_and_cov,
                              pth_moment, ms_pattern.flat_length(True))
+
+
+
+def low_rank_gaussian_variational_family(dim, M, df=1e14):
+    if df <= 2:
+        raise ValueError('df must be greater than 2')
+    rs = npr.RandomState(0)
+    ms_lr_pattern = _get_low_rank_mu_sigma_pattern(dim, M)
+
+    logdensity = FlattenFunctionInput(
+        lambda x, ms_lr_dict: multivariate_t_logpdf(x, ms_lr_dict['mu'], np.dot(ms_lr_dict['B'], np.transpose(ms_lr_dict['B'])) + np.power(np.diag(ms_lr_dict['D']),2) , 1e14),
+        patterns=ms_lr_pattern, free=True, argnums=1)
+
+    def sample(var_param, n_samples, seed=None):
+        my_rs = rs if seed is None else npr.RandomState(seed)
+        s = np.sqrt(my_rs.chisquare(df, n_samples) / df)
+        param_dict = ms_lr_pattern.fold(var_param)
+        z1 = my_rs.randn(n_samples, dim)
+        z2 = my_rs.randn(n_samples, M)
+        B = param_dict['B']
+        D=param_dict['D']
+        #D1 = np.sqrt(D)
+        return param_dict['mu'] + np.dot(z2, np.transpose(B))/s[:,np.newaxis] + z1*np.transpose(D)
+
+    def mean_and_cov(var_param):
+        param_dict = ms_lr_pattern.fold(var_param)
+        return param_dict['mu'], df / (df - 2.) * np.dot(param_dict['B'],
+                                                         np.transpose(param_dict['B'])) + np.power(np.diag(param_dict['D']),2)
+
+    def entropy(var_param):
+        # ignore terms that depend only on df
+        param_dict = ms_lr_pattern.fold(var_param)
+        Sigma = np.dot(param_dict['B'], np.transpose(param_dict['B'])) + np.power(np.diag(param_dict['D']),2)
+        return .5*np.log(np.linalg.det(Sigma))
+
+    def pth_moment(p, var_param):
+        if p not in [2,4]:
+            raise ValueError('only p = 2 or 4 supported')
+        if df <= p:
+            raise ValueError('df must be greater than p')
+        param_dict = ms_lr_pattern.fold(var_param)
+        sq_scales = np.linalg.eigvalsh(param_dict['Sigma'])
+        c = df / (df - 2)
+        if p == 2:
+            return c*np.sum(sq_scales)
+        else:  # p == 4
+            return c**2*(2*(df-1)/(df-4)*np.sum(sq_scales**2) + np.sum(sq_scales)**2)
+
+    return VariationalFamily(sample, entropy, logdensity, mean_and_cov,
+                             pth_moment, ms_lr_pattern.flat_length(True))
+
 
 
 def black_box_klvi(var_family, logdensity, n_samples):
@@ -937,7 +1003,6 @@ def black_box_chivi_iw_reweighting(alpha, var_family, logdensity, M):
             log_weights = compute_log_weights(var_param, n_samples, seed)
             log_norm = np.max(log_weights)
             wts_normalized = np.exp(log_weights - log_norm)
-
 
             scaled_values = np.exp(log_weights - log_norm)**alpha
             neff1 = np.sum(wts_normalized) ** 2 / np.sum(wts_normalized ** 2)
@@ -1681,6 +1746,7 @@ def adam_IA_optimize_with_rhat(n_iters, objective_and_grad, init_param, K,
             averaged_variational_sigmas_list,
             np.array(value_history), np.array(log_norm_history), optimisation_log)
 
+
 def black_box_fdiv(beta, var_family, logdensity, n_samples):
     def compute_g(var_param):
         """Provides a stochastic estimate of the variational lower bound."""
@@ -1689,25 +1755,108 @@ def black_box_fdiv(beta, var_family, logdensity, n_samples):
 
     def compute_log_weights(var_param):
         def compute(samples):
-            log_weights = logdensity(samples) - var_family.logdensity(samples, var_param)
+            log_weights = logdensity(samples) - var_family.logdensity(samples, getval(var_param))
             return log_weights
         return compute
 
+    def compute_log_weights2(var_param, seed):
+        samples = var_family.sample(var_param, n_samples, seed)
+        #log_weights = logdensity(samples) - var_family.logdensity(samples, var_param)
+        log_weights = logdensity(samples) - var_family.logdensity(samples, getval(var_param))
+        return log_weights
+
+    def compute_objective_evals(var_param, seed):
+        log_weights = compute_log_weights2(var_param, seed)
+        return -log_weights
+
+    log_weights_vjp = vector_jacobian_product(compute_log_weights2)
+
     def f_w(t, w):
-        return np.mean(w > t)
+        return np.mean(w >= t)
 
-    def objective_grad_and_log_norm(var_param):
-        samples, grad_var_param = value_and_grad(compute_g, var_param)
 
+    def objective(var_param, samples):
+        logp = logdensity(samples)
+        logq = var_family.logdensity(samples, var_param)
+
+        unweighted_obj = np.sum(logq - logp)
+        return unweighted_obj
+
+
+    def phi(logp, logq):
+        diff = logp - logq
+        norm_diff = diff - np.max(diff)
+        dx = np.exp(norm_diff)
+        prob = np.sign(dx[np.newaxis, ...] - dx[..., np.newaxis])
+        prob = np.array(prob > 0.5, dtype = np.float32)
+        wx = np.sum(prob, axis = 1) / len(logp)
+        wx = (1. - wx) ** beta
+        return wx / np.sum(wx)
+
+
+    def objective_grad_and_log_norm(var_param, mode=3):
+
+        seed = npr.randint(2 ** 32)
+        if mode == 1:
+            samples = var_family.sample(var_param, n_samples)
+            logp = logdensity(samples)
+            logq = var_family.logdensity(samples, var_param)
+
+            ograd = grad(objective, 0)
+            obj_grad = ograd(var_param, samples)
+
+            weights = phi(logp, logq)
+            obj = np.sum(weights * (logq - logp))
+            return obj, obj_grad
+
+
+        def samples2(var_param):
+            samples = var_family.sample(var_param, n_samples, seed)
+            return samples
+
+        samples = compute_g(var_param)
         compute_logw = compute_log_weights(var_param)
-        log_weights, grad_log_weights = value_and_grad(compute_logw, samples)
+
+        #log_weights_vjp = vector_jacobian_product(compute_objective_mean)
+        #log_weights, grad_log_weights = value_and_grad(compute_logw, samples)
+
+        particle_grads = elementwise_grad(compute_logw)(samples)
+        log_weights = compute_log_weights2(var_param,seed)
+        #obj_grad = log_weights_vjp(var_param, seed, obj_value)
+
+        pmz_len = len(var_param)
+        n_theta = pmz_len//2
 
         weights = np.exp(log_weights - np.max(log_weights))
+        gamma = np.array([f_w(weights[i], weights) for i in range(len(weights))]) ** beta
+        gamma1= gamma[:,None]
+        z_gamma = np.sum(gamma1)
 
-        gamma = np.array([f(w[i], w) for i in range(len(weights))]) ** beta
-        z_gamma = np.sum(gamma)
+        # preferred mode, using autograd gradients, formulating the gradient as in eq
+        if mode == 2:
+            transform_grad = jacobian(samples2)(var_param)
+            a1 = np.transpose(transform_grad, (0,2,1))
+            b1 = np.transpose(particle_grads[:,None], (2,1,0))
+            #grad_t1 = np.dot(a1,b1)
 
-        obj_grad = 1. / z_gamma * np.sum(gamma * grad_var_param * grad_log_weights)
-        obj_value = np.NaN
-        return (obj_value, obj_grad)
+            l = a1.shape[1]
+
+            grad_t2 = np.zeros((n_samples, l))
+            for i in range(l):
+                c1 = np.diag(np.dot(a1[:,i,:], b1[:,0,:]))
+                grad_t2[:, i] = c1
+
+
+            obj_grad_all = -(1. / z_gamma) * np.mean(gamma1  * grad_t2, axis=0)
+            #print(obj_grad_all.shape)
+
+        if mode == 3:
+
+            obj_grad = -(1. / z_gamma) * gamma1  * particle_grads
+            obj_grad_all = np.concatenate([np.mean(obj_grad, axis=0), np.mean(samples*obj_grad*np.exp(var_param[n_theta:]), axis=0)])
+            #print(obj_grad_all.shape)
+            obj_value = 0
+        return (0, obj_grad_all)
     return objective_grad_and_log_norm
+
+
