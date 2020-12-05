@@ -316,11 +316,11 @@ if divergence == 3:
                               xlim=[-2.5,2.5], corr=rho, savepath='../writing/variational-objectives/figures_new/chivi-corr-{:.2f}.pdf'.format(rho))
 
 
-            init_var_param = np.concatenate([m2, np.array(res.x)/2])
-            inc_kl_val, paretok1 = compute_KL_estimate_MC(m2, c2, mf_g_var_family, init_var_param, dim=d )
-            inc_inc_kl_est, paretok2 = compute_inclusive_KL_MC(m2, c2, mf_g_var_family, init_var_param, dim=d )
-            kl_analytical = gaussianKL(m2, np.diag(np.exp(res.x)), m2, c2)
-            inc_kl_analytical = gaussianKL(m2, c2, m2, np.diag(np.exp(res.x)) )
+            m1, c1 = mf_g_var_family.mean_and_cov(opt_param)
+            inc_kl_val, paretok1 = compute_KL_estimate_MC(m2, c2, m1, c1, dim=d )
+            inc_inc_kl_est, paretok2 = compute_inclusive_KL_MC(m2, c2, m1, c1, dim=d )
+            kl_analytical = gaussianKL(m1, c1, m2, c2)
+            inc_kl_analytical = gaussianKL(m2, c2, m1, c1 )
             chi_df = chi_df.append(dict(corr=rho, Dimension=d, chidiv=val[-1], KLMC = inc_kl_val, KLanalytical=kl_analytical,
                                       paretok1=paretok1, KL=kl_analytical, IncKLMC= inc_inc_kl_est, IncKLanalytical = inc_kl_analytical,
                                       paretok2=paretok2), ignore_index=True)
