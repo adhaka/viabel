@@ -311,7 +311,7 @@ if divergence == 3:
             div_objective_and_grad = black_box_chivi(2, mf_g_var_family, lnpdf, n_samples=500)
             opt_param, var_param_history, val, _ ,_=  adagrad_optimize(3600, div_objective_and_grad, init_var_param, learning_rate=0.012)
             if d == 2:
-                plot_contours(means=[m2]*2, covs=[c2, np.diag(np.exp(res.x))],
+                plot_contours(means=[m2, opt_param[:d]], covs=[c2, opt_param[d:]],
                               colors=[(0.,0.,0.)]+sns.color_palette(),
                               xlim=[-2.5,2.5], corr=rho, savepath='../writing/variational-objectives/figures_new/chivi-corr-{:.2f}.pdf'.format(rho))
 
@@ -380,24 +380,21 @@ from viabel.vb import low_rank_gaussian_variational_family
 mf_lr_g_var_family = low_rank_gaussian_variational_family(dim=4, M=2)
 
 
-rhos = [ 0.5]
-ds = np.concatenate([np.arange(4,20,100)]) # np.arange(2,11,2,dtype=int)
-M=2
-for rho in rhos:
-    for d in ds:
-        c2 = rho*np.ones((d,d))
-        c2[np.diag_indices_from(c2)] = 1
-        m2 = np.zeros(d)
-        lnpdf = lambda x: mvn.logpdf(x, mean=m2, cov=c2);
-        mf_g_var_family = mean_field_gaussian_variational_family(dim=d)
-        b2 = np.ones(d*M)
-        d2 = np.ones(d)
-        init_var_param = np.concatenate([m2, b2,d2])
+if divergence == 4:
+    rhos = [ 0.5]
+    ds = np.concatenate([np.arange(4,20,100)]) # np.arange(2,11,2,dtype=int)
+    M=2
+    for rho in rhos:
+        for d in ds:
+            c2 = rho*np.ones((d,d))
+            c2[np.diag_indices_from(c2)] = 1
+            m2 = np.zeros(d)
+            lnpdf = lambda x: mvn.logpdf(x, mean=m2, cov=c2);
+            mf_g_var_family = mean_field_gaussian_variational_family(dim=d)
+            b2 = np.ones(d*M)
+            d2 = np.ones(d)
+            init_var_param = np.concatenate([m2, b2,d2])
 
-        div_objective_and_grad = black_box_chivi(2,mf_lr_g_var_family, lnpdf, n_samples=1000)
-        opt_param, var_param_history, val, _ ,_=         adagrad_optimize(3400, div_objective_and_grad, init_var_param, learning_rate=0.012)
+            div_objective_and_grad = black_box_chivi(2,mf_lr_g_var_family, lnpdf, n_samples=1000)
+            opt_param, var_param_history, val, _ ,_=         adagrad_optimize(3400, div_objective_and_grad, init_var_param, learning_rate=0.012)
 
-    if d == 2:
-        plot_contours(means=[m2, mean], covs=[c2, cov],
-                                  colors=[(0.,0.,0.)]+sns.color_palette(),
-                                  xlim=[-2.5,2.5], corr=rho)
