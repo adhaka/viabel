@@ -65,7 +65,8 @@ def plot_contours(means, covs, colors=None, xlim=[-2.5,2.5], ylim=[-2.5, 2.5], c
         plt.savefig(savepath)
         plt.clf()
     else:
-        plt.savefig(savepath, bbox_inches='tight') 
+        plt.savefig(savepath, bbox_inches='tight')
+        plt.clf()
     #plt.show()
 
 
