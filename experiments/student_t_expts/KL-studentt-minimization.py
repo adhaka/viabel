@@ -168,7 +168,7 @@ if divergence==1:
             klvi_var_param,  klvi_param_history, value_history, grad_norm_history, oplog = adagrad_optimize(5000, klvi_objective_and_grad, init_var_param1, learning_rate=.008,
                                       learning_rate_end=0.001)
             if d == 2:
-                plot_approx_and_exact_contours(lnpdf, mf_t_var_family, klvi_var_param, colors=[(0.,0.,0.)]+sns.color_palette()+sns.color_palette(),**lims, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-klvi_gauss_vs_t_2D_'+str(rho)+'.pdf',corr=rho )
+                plot_approx_and_exact_contours(lnpdf, mf_t_var_family, klvi_var_param, colors=[(0.,0.,0.)]+sns.color_palette()+sns.color_palette(),**lims, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-klvi_studentt_2D_'+str(rho)+'.pdf',corr=rho )
 
             kl_val, paretok1 = compute_KL_estimate(m2, c2, mf_t_var_family, klvi_var_param, dim=d )
             inc_kl, paretok2 = compute_inclusive_KL(m2, c2, mf_t_var_family, klvi_var_param, dim=d )
@@ -236,7 +236,7 @@ if divergence == 2:
 
             inc_klvi_var_param, inc_klvi_param_history, obj_history,  inc_klvi_history, op_log_inklvi = adagrad_optimize(n_iters, incl_klvi_mf_objective_and_grad, init_var_param1, learning_rate=.01, learning_rate_end=0.001, has_log_norm=3,k=d)
             if d == 2:
-                plot_approx_and_exact_contours(lnpdf, mf_t_var_family, inc_klvi_var_param, colors=[(0.,0.,0.)]+sns.color_palette()+sns.color_palette(),**lims, savepath='../../writing/variational-objectives/figures_new/inclusive_klvi_gauss_vs_t_2D_'+str(rho)+'.pdf',corr=rho)
+                plot_approx_and_exact_contours(lnpdf, mf_t_var_family, inc_klvi_var_param, colors=[(0.,0.,0.)]+sns.color_palette()+sns.color_palette(),**lims, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-inclusive_klvi_studentt_2D_'+str(rho)+'.pdf',corr=rho)
             kl_val, paretok1 = compute_KL_estimate(m2, c2, mf_t_var_family, inc_klvi_var_param, dim=d )
             inc_kl, paretok2 = compute_inclusive_KL(m2, c2, mf_t_var_family, inc_klvi_var_param, dim=d )
             inc_kl_df_t = inc_kl_df_t.append(dict(corr=rho, Dimension=d, KL=inc_kl, KLMC=kl_val, IncKLMC=inc_kl, paretok1=paretok1, paretok2=paretok2), ignore_index=True)
@@ -283,7 +283,7 @@ if divergence == 2:
     plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
                ncol=3, frameon=False)
     sns.despine()
-    plt.savefig(f'../writing/variational-objectives/figures_new/{cov_structure}-inc_kl_studentt_paretok2.pdf', bbox_inches='tight')
+    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-inc_kl_studentt_paretok2.pdf', bbox_inches='tight')
     plt.clf()
 
 
@@ -301,7 +301,7 @@ if divergence == 3:
             init_var_param = np.concatenate([m2, np.ones(d)*1.5])
 
             div_objective_and_grad = black_box_chivi(2, mf_g_var_family, lnpdf, n_samples=1000)
-            opt_param, var_param_history, val , _=  adagrad_optimize(5000, div_objective_and_grad, init_var_param, learning_rate=0.006)
+            opt_param, var_param_history, val , _, op_log_chivi =  adagrad_optimize(5000, div_objective_and_grad, init_var_param, learning_rate=0.006)
 
             opt_param1= var_param_history[-1]
             m1, c1 = mf_g_var_family.mean_and_cov(opt_param)
@@ -309,7 +309,7 @@ if divergence == 3:
             if d == 2:
                 plot_contours(means=[m2, m1], covs=[c2, c1],
                               colors=[(0.,0.,0.)]+sns.color_palette(),
-                              xlim=[-2.5,2.5], corr=rho, savepath='../../writing/variational-objectives/figures_new/chivi-corr-{:.2f}.pdf'.format(rho))
+                              xlim=[-2.5,2.5], corr=rho, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-studentt-corr-{rho}.pdf')
 
 
             inc_kl_val, paretok1 = compute_KL_estimate(m2, c2, mf_g_var_family, var_param_history[-1], dim=d )
@@ -333,7 +333,7 @@ if divergence == 3:
     plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
                ncol=3, frameon=False)
     sns.despine()
-    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-kl-gaussian-vb-d1.pdf', bbox_inches='tight')
+    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-kl-studentt-vb-d1.pdf', bbox_inches='tight')
     plt.clf()
     #plt.show()
 
@@ -344,7 +344,7 @@ if divergence == 3:
     plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
                ncol=3, frameon=False)
     sns.despine()
-    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-inckl-gaussian-vb-d1.pdf', bbox_inches='tight')
+    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-inckl-studentt-vb-d1.pdf', bbox_inches='tight')
     plt.clf()
     #plt.show()
 
@@ -358,7 +358,7 @@ if divergence == 3:
     plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
                ncol=3, frameon=False)
     sns.despine()
-    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-kl-gaussian_mean_field_paretok1.pdf', bbox_inches='tight')
+    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-kl-studentt_mean_field_paretok1.pdf', bbox_inches='tight')
     plt.clf()
     #plt.show()
 
@@ -369,7 +369,7 @@ if divergence == 3:
     plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
                ncol=3, frameon=False)
     sns.despine()
-    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-inckl-gaussian_mean_field_paretok2.pdf', bbox_inches='tight')
+    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-inckl-studentt_mean_field_paretok2.pdf', bbox_inches='tight')
     plt.clf()
 
 
