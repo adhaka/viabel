@@ -297,23 +297,23 @@ if divergence == 3:
             c2 = generate_density(d, cov_structure=cov_structure, rho=rho)
             m2 = np.zeros(d)
             lnpdf = lambda x: mvn.logpdf(x, mean=m2, cov=c2);
-            mf_g_var_family = mean_field_gaussian_variational_family(dim=d)
+            mf_t_var_family = mean_field_t_variational_family(dim=d, df=8)
             init_var_param = np.concatenate([m2, np.ones(d)*1.5])
 
-            div_objective_and_grad = black_box_chivi(2, mf_g_var_family, lnpdf, n_samples=1000)
+            div_objective_and_grad = black_box_chivi(2, mf_t_var_family, lnpdf, n_samples=1000)
             opt_param, var_param_history, val , _, op_log_chivi =  adagrad_optimize(5000, div_objective_and_grad, init_var_param, learning_rate=0.006)
 
             opt_param1= var_param_history[-1]
-            m1, c1 = mf_g_var_family.mean_and_cov(opt_param)
+            m1, c1 = mf_t_var_family.mean_and_cov(opt_param)
 
             if d == 2:
-                plot_contours(means=[m2, m1], covs=[c2, c1],
-                              colors=[(0.,0.,0.)]+sns.color_palette(),
-                              xlim=[-2.5,2.5], corr=rho, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-studentt-corr-{rho}.pdf')
+                plot_approx_and_exact_contours(lnpdf, mf_t_var_family, opt_param1,
+                                               colors=[(0., 0., 0.)] + sns.color_palette() + sns.color_palette(),
+                                               **lims, corr=rho, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-chivi-studentt-corr-{rho}.pdf')
 
 
-            inc_kl_val, paretok1 = compute_KL_estimate(m2, c2, mf_g_var_family, var_param_history[-1], dim=d )
-            inc_inc_kl_est, paretok2 = compute_inclusive_KL(m2, c2, mf_g_var_family, var_param_history[-1], dim=d)
+            inc_kl_val, paretok1 = compute_KL_estimate(m2, c2, mf_t_var_family, var_param_history[-1], dim=d )
+            inc_inc_kl_est, paretok2 = compute_inclusive_KL(m2, c2, mf_t_var_family, var_param_history[-1], dim=d)
 
             chi_df = chi_df.append(dict(corr=rho, Dimension=d, chidiv=val[-1], KLMC = inc_kl_val,
                                       paretok1=paretok1, IncKLMC= inc_inc_kl_est,
@@ -321,7 +321,7 @@ if divergence == 3:
 
 
     results = dict()
-    results['name'] = cov_structure+'-chivi_gaussian_mf_vi'
+    results['name'] = cov_structure+'-chivi_studentt_mf_vi'
     results['results'] = chi_df
     filename = '../../writing/variational-objectives/pickles/' + results['name'] + '.pkl'
     file1 = open(filename, 'wb')
