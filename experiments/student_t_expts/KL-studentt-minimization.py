@@ -42,6 +42,7 @@ parser.add_argument('--divergence', type=int, default=1)
 parser.add_argument('--rank', type=str, default='fullrank')
 parser.add_argument('--dimensions', type=int, default=50)
 parser.add_argument('--covariance', type=str, default='uniform')
+parser.add_argument('--iters', type=int, default=5000)
 
 import pickle
 args = parser.parse_args()
@@ -50,6 +51,7 @@ divergence = args.divergence
 rank = args.rank
 DIM = args.dimensions
 cov_structure = args.covariance
+n_iters = args.iters
 
 import sys, os
 sys.path.append('..')
@@ -140,9 +142,11 @@ def compute_KL_estimate(m2, c2, var_family, optim_var_params, dim, n_samples=200
     return div, paretok  
 
 
-rhos = [0.1, .5, 0.75, 0.88, 0.94, 0.97 ]
+rhos = [0.1, .3, .5, 0.75, 0.88, 0.94 ]
 ds = np.concatenate([np.arange(2,10,2), np.arange(10,DIM,10,dtype=int)]) # np.arange(2,11,2,dtype=int)
-n_iters = 5000
+
+
+#ds = np.array([100]) # np.arange(2,11,2,dtype=int)
 
 
 if divergence==1:
@@ -165,7 +169,7 @@ if divergence==1:
             #lnpdf_t = lambda z:
 
             klvi_objective_and_grad = black_box_klvi(mf_t_var_family, lnpdf, 1000)
-            klvi_var_param,  klvi_param_history, value_history, grad_norm_history, oplog = adagrad_optimize(5000, klvi_objective_and_grad, init_var_param1, learning_rate=.008,
+            klvi_var_param,  klvi_param_history, value_history, grad_norm_history, oplog = adagrad_optimize(n_iters, klvi_objective_and_grad, init_var_param1, learning_rate=.008,
                                       learning_rate_end=0.001)
             if d == 2:
                 plot_approx_and_exact_contours(lnpdf, mf_t_var_family, klvi_var_param, colors=[(0.,0.,0.)]+sns.color_palette()+sns.color_palette(),**lims, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-klvi_studentt_2D_'+str(rho)+'.pdf',corr=rho )
@@ -190,7 +194,15 @@ if divergence==1:
     plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-kl-studentt-vb-d1.pdf', bbox_inches='tight')
     plt.clf()
 
-    sns.lineplot(data=kl_df, x='Dimension', y='IncKL', hue='corr', legend='full')
+    sns.lineplot(data=kl_df, x='Dimension', y='KLMC', hue='corr', legend='full')
+    plt.ylabel('KL divergence')
+    plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
+               ncol=3, frameon=False)
+    sns.despine()
+    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-kl-studentt-vb-d-MC.pdf', bbox_inches='tight')
+    plt.clf()
+
+    sns.lineplot(data=kl_df, x='Dimension', y='IncKLMC', hue='corr', legend='full')
     plt.ylabel('Inclusive KL divergence')
     plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
                ncol=3, frameon=False)
@@ -239,7 +251,7 @@ if divergence == 2:
                 plot_approx_and_exact_contours(lnpdf, mf_t_var_family, inc_klvi_var_param, colors=[(0.,0.,0.)]+sns.color_palette()+sns.color_palette(),**lims, savepath=f'../../writing/variational-objectives/figures_new/{cov_structure}-inclusive_klvi_studentt_2D_'+str(rho)+'.pdf',corr=rho)
             kl_val, paretok1 = compute_KL_estimate(m2, c2, mf_t_var_family, inc_klvi_var_param, dim=d )
             inc_kl, paretok2 = compute_inclusive_KL(m2, c2, mf_t_var_family, inc_klvi_var_param, dim=d )
-            inc_kl_df_t = inc_kl_df_t.append(dict(corr=rho, Dimension=d, KL=inc_kl, KLMC=kl_val, IncKLMC=inc_kl, paretok1=paretok1, paretok2=paretok2), ignore_index=True)
+            inc_kl_df_t = inc_kl_df_t.append(dict(corr=rho, Dimension=d, IncKL=obj_history[-1] , KL=inc_kl, KLMC=kl_val, IncKLMC=inc_kl, paretok1=paretok1, paretok2=paretok2), ignore_index=True)
 
 
     results = dict()
@@ -263,6 +275,14 @@ if divergence == 2:
                ncol=3, frameon=False)
     sns.despine()
     plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-inclusive-kl-inclusive-kl-studentt-vb-d1.pdf', bbox_inches='tight')
+    plt.clf()
+
+    sns.lineplot(data=inc_kl_df_t, x='Dimension', y='IncKLMC', hue='corr', legend='full')
+    plt.ylabel('Inclusive KL divergence')
+    plt.legend(rhos, loc='upper center', bbox_to_anchor=(0.5, 1.4),
+               ncol=3, frameon=False)
+    sns.despine()
+    plt.savefig(f'../../writing/variational-objectives/figures_new/{cov_structure}-inclusive-kl-inclusive-kl-studentt-vb-d2.pdf', bbox_inches='tight')
     plt.clf()
 
     sns.lineplot(data=inc_kl_df_t, x='Dimension', y='paretok1', hue='corr', legend='full')
