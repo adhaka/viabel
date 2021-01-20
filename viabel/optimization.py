@@ -281,3 +281,76 @@ class SASA(Optimizer):
         return dict(smoothed_opt_param = variational_param_mean,
                     variational_param_history = variational_param_history,
                     value_history = np.array(value_history))
+
+
+    def optimize2(self, n_iters, objective, init_param):
+        """
+        Parameters
+        ----------
+        n_iters : `int`
+            Number of iterations of the optimization
+        objective: `function`
+            Function for constructing the objective and gradient function
+        init_param : `numpy.ndarray`, shape(var_param_dim,)
+            Initial values of the variational parameters
+        int_learning_rate: `float`
+            Initial learning rate of optimization (step size to reach the (local) minimum)
+
+        Returns
+        ----------
+        Dictionary
+            smoothed_opt_param : `numpy.ndarray`, shape(var_param_dim,)
+                 Iterate averaged estimated variational parameters
+            variational_param_history : `numpy.ndarray`, shape(n_iters, var_param_dim)
+                Estimated variational parameters over all iterations
+            value_history : `numpy.ndarray`, shape(n_iters,)
+                 Estimated loss (ELBO) over all iterations
+        """
+        t0 = 0
+        history = None
+        learning_rate = self._sgo._learning_rate
+        variational_param = init_param.copy()
+        variational_param_mean = init_param.copy()
+        k = init_param.size//2
+        value_history = []
+        Delta_history = []
+        variational_param_history = []
+        lower = upper = np.nan
+        stopped = False
+        prev_zk = np.zeros((1,k))
+        with tqdm.trange(n_iters) as progress:
+            try:
+                for t in progress:
+                    object_val, object_grad, prev_zk = objective(variational_param, prev_zk)
+                    value_history.append(object_val)
+                    descent_dir, history = self._sgo.descent_direction(object_grad, history)
+                    # must be computed before updated variational parameter
+                    Delta = np.dot(variational_param, descent_dir) - 0.5*learning_rate*np.sum(descent_dir**2)
+                    Delta_history.append(Delta)
+                    variational_param -= learning_rate * descent_dir
+                    variational_param_history.append(variational_param.copy())
+                    W = np.max([np.min([t-t0, self._W0]), np.ceil(self._theta*(t-t0)).astype(int)])
+                    if (W >= self._W0) and (t % self._t_check == 0):
+                        convg, lower, upper = self.convergence_check(W, Delta_history)
+                        if convg == True:
+                            m = b = np.floor(np.sqrt(W)).astype(int)
+                            learning_rate = self._rho * learning_rate
+                            variational_param_mean_prev = variational_param_mean
+                            variational_param_mean = np.mean(np.array(variational_param_history[-m*b:]), axis=0)
+                            t0 = t
+                    if t % 10 == 0:
+                        avg_loss = np.mean(value_history[max(0, t - 1000):t + 1])
+                        progress.set_description(
+                            'average loss = {:,.5g} | learning rate = {:,.5g} | ({:,.5g}, {:,.5g})'.format(avg_loss, learning_rate, lower, upper))
+            except (KeyboardInterrupt, StopIteration) as e:  # pragma: no cover
+                # do not print log on the same line
+                progress.close()
+            finally:
+                progress.close()
+        if stopped:
+            print('Stopping rule reached at iteration', t)
+        if t - t0 > self._W0:
+            variational_param_mean = np.mean(np.array(variational_param_history[-self._W0:]), axis = 0)
+        return dict(smoothed_opt_param = variational_param_mean,
+                    variational_param_history = variational_param_history,
+                    value_history = np.array(value_history))
